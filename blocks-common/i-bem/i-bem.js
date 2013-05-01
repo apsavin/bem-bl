@@ -87,6 +87,30 @@ function buildCheckMod(modName, modVal) {
 
 }
 
+/**
+ * @param {Array} [baseBlocks]
+ * @returns {Function|null} baseBlock
+ */
+function createBaseBlock(baseBlocks) {
+    if(!baseBlocks || !baseBlocks.length)
+        return null;
+
+    if(baseBlocks.length == 1)
+        return baseBlocks[0];
+
+    var baseBlock = function() {},
+        baseBlockPtp = baseBlock.prototype;
+
+    baseBlocks.forEach(function(blockName) {
+        var block = blocks[blockName];
+        $.extend(baseBlock, block);
+        $.extend(baseBlockPtp, block.prototype);
+    });
+
+    return baseBlock;
+}
+
+
 /** @namespace */
 this.BEM = $.inherit($.observable, /** @lends BEM.prototype */ {
 
@@ -543,7 +567,7 @@ this.BEM = $.inherit($.observable, /** @lends BEM.prototype */ {
      * @protected
      * @param {String|Object} decl Block name (simple syntax) or description
      * @param {String} decl.block|decl.name Block name
-     * @param {String} [decl.baseBlock] Name of the parent block
+     * @param {String|Array} [decl.baseBlock|decl.baseBlocks] Name of the parent block(s)
      * @param {String} [decl.modName] Modifier name
      * @param {String} [decl.modVal] Modifier value
      * @param {Object} [props] Methods
@@ -557,8 +581,14 @@ this.BEM = $.inherit($.observable, /** @lends BEM.prototype */ {
             decl.block = decl.name;
         }
 
-        if(decl.baseBlock && !blocks[decl.baseBlock])
-            throw('baseBlock "' + decl.baseBlock + '" for "' + decl.block + '" is undefined');
+        var baseBlocks = decl.baseBlock || decl.baseBlocks;
+        if (baseBlocks) {
+            baseBlocks = Array.isArray(baseBlocks) ? baseBlocks : [baseBlocks];
+            baseBlocks.forEach(function(baseBlock) {
+                if(!blocks[baseBlock])
+                    throw('baseBlock "' + decl.baseBlock + '" for "' + decl.block + '" is undefined');
+            });
+        }
 
         props || (props = {});
 
@@ -574,7 +604,7 @@ this.BEM = $.inherit($.observable, /** @lends BEM.prototype */ {
             delete props.onElemSetMod;
         }
 
-        var baseBlock = blocks[decl.baseBlock || decl.block] || this;
+        var baseBlock = createBaseBlock(baseBlocks) || blocks[decl.block] || this;
 
         if(decl.modName) {
             var checkMod = buildCheckMod(decl.modName, decl.modVal);
